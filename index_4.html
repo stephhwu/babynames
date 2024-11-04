@@ -1,38 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
-  <!-- Previous head and style sections remain the same -->
+  <!-- [Previous head and style sections remain the same] -->
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Name Stars Distribution</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-      /* Previous styles remain the same */
       .star {
         stroke: none;
         cursor: pointer;
-      }
-      .star.rare {
-        stroke: #333;
-        stroke-width: 0.5;
+        fill: white;
       }
       .line {
         stroke-width: 1px;
         opacity: 0.5;
-        stroke: #666;
+        stroke: white;
       }
       .year-label {
         font-size: 24px;
-        fill: #333;
+        fill: white;
       }
       .name-label {
         font-size: 10px;
-        fill: #333;
-      }
-      .rare-label {
-        font-size: 8px;
-        fill: #333;
-        font-style: italic;
+        fill: white;
       }
       .timeline,
       .summary {
@@ -41,7 +32,7 @@
         margin-top: 10px;
       }
       .year-button {
-        color: #333;
+        color: white;
         margin: 0 5px;
         padding: 5px 10px;
         cursor: pointer;
@@ -49,10 +40,10 @@
       }
       .year-button:hover {
         font-weight: bold;
-        color: #666;
+        color: lightblue;
       }
       .year-button.active {
-        background: rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.2);
       }
       .search-box {
         margin-top: 10px;
@@ -63,14 +54,14 @@
         position: absolute;
         top: 20px;
         right: 20px;
-        background: rgba(255, 255, 255, 0.9);
+        background: rgba(3, 5, 40, 0.7);
         padding: 15px;
         border-radius: 5px;
         min-width: 200px;
       }
       .stats h3, .stats h4 {
         margin: 5px 0;
-        color: #333;
+        color: #adf;
       }
       .stat-row {
         margin: 3px 0;
@@ -79,17 +70,17 @@
       }
       .stat-label {
         margin-right: 10px;
-        color: #555;
+        color: #ddd;
       }
       .stat-value {
-        color: #333;
+        color: white;
       }
     </style>
   </head>
   <body
     style="
-      background: #F1E3C6;
-      color: #333;
+      background: #030528;
+      color: white;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -110,7 +101,7 @@
     <div id="summary" class="summary"></div>
 
     <script>
-      // Previous helper functions remain the same
+      // [Previous helper functions remain the same]
       function generateStarPosition(index, totalStars) {
         const goldenRatio = (1 + Math.sqrt(5)) / 2;
         const theta = index * goldenRatio * 2 * Math.PI;
@@ -124,21 +115,6 @@
                  (0.5 + (Math.sin(theta) * spiral * 0.5) + randomOffset() / height);
         
         return { x, y };
-      }
-
-      function getColorByInitial(initial) {
-        const colors = {
-          'A': '#FF6B6B', 'B': '#4ECDC4', 'C': '#45B7D1',
-          'D': '#96CEB4', 'E': '#FFEEAD', 'F': '#D4A5A5',
-          'G': '#9B59B6', 'H': '#3498DB', 'I': '#FF9F4A',
-          'J': '#1ABC9C', 'K': '#D35400', 'L': '#8E44AD',
-          'M': '#2ECC71', 'N': '#E74C3C', 'O': '#F1C40F',
-          'P': '#16A085', 'Q': '#CC66FF', 'R': '#E67E22',
-          'S': '#2980B9', 'T': '#FF6B6B', 'U': '#95A5A6',
-          'V': '#DC7633', 'W': '#27AE60', 'X': '#7F8C8D',
-          'Y': '#C0392B', 'Z': '#4A235A'
-        };
-        return colors[initial] || '#666666';
       }
 
       function toTitleCase(str) {
@@ -160,6 +136,7 @@
         const stats = d3.select(".stats");
         
         if (year === null) {
+          // Show overall statistics
           const totalNames = allData.length;
           const totalPeople = d3.sum(allData, d => d.totalCount);
           const avgNameUsage = Math.round(totalPeople / totalNames);
@@ -188,6 +165,7 @@
             `).join('')}
           `);
         } else {
+          // Show year-specific statistics
           const yearData = allData
             .filter(d => d.years.includes(year))
             .map(d => ({
@@ -227,6 +205,7 @@
       }
 
       d3.csv("Popular_Baby_Names_20241011.csv").then((rawData) => {
+        // Normalize and aggregate the data
         const nameAggregates = {};
         const nameYearCounts = {};
 
@@ -266,12 +245,14 @@
 
         data.sort((a, b) => b.totalCount - a.totalCount);
 
+        // Generate positions
         data.forEach((d, i) => {
           const position = generateStarPosition(i, data.length);
           d.x = position.x;
           d.y = position.y;
         });
 
+        // Initial statistics
         updateStats(data);
 
         const maxCount = d3.max(data, d => d.totalCount);
@@ -282,45 +263,50 @@
 
         const years = [...new Set(rawData.map(d => d["Year of Birth"]))].sort();
 
-        // Update the star creation to include rare names
+        // Create stars
         svg
           .selectAll(".star")
           .data(data, d => d.name)
           .join("circle")
-          .attr("class", d => `star ${d.totalCount <= 10 ? "rare" : ""}`)
+          .attr("class", "star")
           .attr("cx", d => d.x)
           .attr("cy", d => d.y)
-          .attr("r", d => d.totalCount <= 10 ? 3 : 1 + Math.log10(d.totalCount) * 0.3)
-          .attr("opacity", d => d.totalCount <= 10 ? 0.8 : brightnessScale(d.totalCount))
-          .attr("fill", d => getColorByInitial(d.name[0]))
+          .attr("r", d => 1 + Math.log10(d.totalCount) * 0.3)
+          .attr("opacity", d => brightnessScale(d.totalCount))
           .on("mouseover", function(event, d) {
             d3.select(this).attr("r", 6);
             svg
               .append("text")
-              .attr("class", d.totalCount <= 10 ? "rare-label" : "name-label")
+              .attr("class", "name-label")
               .attr("x", d.x + 4)
               .attr("y", d.y - 4)
               .text(`${d.name} (${d.totalCount.toLocaleString()})`);
           })
           .on("mouseout", function(event, d) {
-            d3.select(this).attr("r", d.totalCount <= 10 ? 3 : 1 + Math.log10(d.totalCount) * 0.3);
-            svg.selectAll(".name-label, .rare-label").remove();
+            d3.select(this).attr("r", 1 + Math.log10(d.totalCount) * 0.3);
+            svg.selectAll(".name-label").remove();
           });
 
-        // Add permanent labels for rare names
-        svg
-          .selectAll(".rare-label")
-          .data(data.filter(d => d.totalCount <= 10))
-          .join("text")
-          .attr("class", "rare-label")
-          .attr("x", d => d.x + 4)
-          .attr("y", d => d.y - 4)
-          .text(d => `${d.name} (${d.totalCount})`);
+        // Create timeline
+        const timeline = d3.select("#timeline");
+        years.forEach(year => {
+          timeline
+            .append("span")
+            .attr("class", "year-button")
+            .text(year)
+            .on("click", function() {
+              // Remove active class from all buttons
+              timeline.selectAll(".year-button").classed("active", false);
+              // Add active class to clicked button
+              d3.select(this).classed("active", true);
+              drawTopNamesForYear(year);
+              updateStats(data, year, nameYearCounts);
+            });
+        });
 
-        // Modify the drawTopNamesForYear function
         function drawTopNamesForYear(year) {
           svg.selectAll(".line").remove();
-          svg.selectAll(".name-label").remove(); // Don't remove rare-label
+          svg.selectAll(".name-label").remove();
 
           const yearData = data
             .filter(d => d.years.includes(year))
@@ -343,15 +329,13 @@
             .attr("x2", d => d[1].x)
             .attr("y2", d => d[1].y);
 
-          // Update regular stars
           svg
-            .selectAll(".star:not(.rare)")
+            .selectAll(".star")
             .attr("opacity", 0.2)
             .filter(d => yearData.includes(d))
             .attr("opacity", 1)
             .attr("r", 4);
 
-          // Add labels for top 10
           svg
             .selectAll(".name-label")
             .data(yearData)
@@ -362,13 +346,12 @@
             .text(d => `${d.name} (${nameYearCounts[`${d.name}-${year}`].toLocaleString()})`);
         }
 
-        // Modify the search functionality
+        // [Search functionality remains the same]
         d3.select("#nameSearch").on("input", function() {
           const searchTerm = this.value.toLowerCase();
           
-          // Reset all non-rare stars
           svg
-            .selectAll(".star:not(.rare)")
+            .selectAll(".star")
             .attr("opacity", 0.2)
             .attr("r", d => 1 + Math.log10(d.totalCount) * 0.3);
 
@@ -376,14 +359,12 @@
             d.name.toLowerCase().includes(searchTerm)
           );
 
-          // Highlight searched stars
           svg
             .selectAll(".star")
             .filter(d => filteredData.includes(d))
             .attr("opacity", 1)
             .attr("r", 4);
 
-          // Update labels for searched names
           svg
             .selectAll(".name-label")
             .data(filteredData)
@@ -403,21 +384,6 @@
           } else {
             summary.text("No matching names found.");
           }
-        });
-
-        // Initialize the timeline
-        const timeline = d3.select("#timeline");
-        years.forEach(year => {
-          timeline
-            .append("span")
-            .attr("class", "year-button")
-            .text(year)
-            .on("click", function() {
-              timeline.selectAll(".year-button").classed("active", false);
-              d3.select(this).classed("active", true);
-              drawTopNamesForYear(year);
-              updateStats(data, year, nameYearCounts);
-            });
         });
       });
     </script>
