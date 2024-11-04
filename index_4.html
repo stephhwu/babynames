@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+  <!-- [Previous head and style sections remain the same] -->
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Name Stars Distribution</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      .star {
+        stroke: none;
+        cursor: pointer;
+        fill: white;
+      }
+      .line {
+        stroke-width: 1px;
+        opacity: 0.5;
+        stroke: white;
+      }
+      .year-label {
+        font-size: 24px;
+        fill: white;
+      }
+      .name-label {
+        font-size: 10px;
+        fill: white;
+      }
+      .timeline,
+      .summary {
+        display: flex;
+        justify-content: center;
+        margin-top: 10px;
+      }
+      .year-button {
+        color: white;
+        margin: 0 5px;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 3px;
+      }
+      .year-button:hover {
+        font-weight: bold;
+        color: lightblue;
+      }
+      .year-button.active {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .search-box {
+        margin-top: 10px;
+        padding: 5px;
+        width: 200px;
+      }
+      .stats {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px;
+        border-radius: 5px;
+        min-width: 200px;
+      }
+      .stats h3, .stats h4 {
+        margin: 5px 0;
+        color: #adf;
+      }
+      .stat-row {
+        margin: 3px 0;
+        display: flex;
+        justify-content: space-between;
+      }
+      .stat-label {
+        margin-right: 10px;
+        color: #ddd;
+      }
+      .stat-value {
+        color: white;
+      }
+    </style>
+  </head>
+  <body
+    style="
+      background: black;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      position: relative;
+    "
+  >
+    <div class="stats"></div>
+    <svg id="constellation" width="800" height="600"></svg>
+    <div id="timeline" class="timeline"></div>
+    <input
+      type="text"
+      id="nameSearch"
+      class="search-box"
+      placeholder="Search for a name..."
+    />
+    <div id="summary" class="summary"></div>
+
+    <script>
+      // [Previous helper functions remain the same]
+      function generateStarPosition(index, totalStars) {
+        const goldenRatio = (1 + Math.sqrt(5)) / 2;
+        const theta = index * goldenRatio * 2 * Math.PI;
+        const randomOffset = () => (Math.random() - 0.5) * 100;
+        const progress = index / totalStars;
+        const spiral = Math.sqrt(progress);
+        
+        const x = padding + (width - 2 * padding) * 
+                 (0.5 + (Math.cos(theta) * spiral * 0.5) + randomOffset() / width);
+        const y = padding + (height - 2 * padding) * 
+                 (0.5 + (Math.sin(theta) * spiral * 0.5) + randomOffset() / height);
+        
+        return { x, y };
+      }
+
+      function toTitleCase(str) {
+        return str.toLowerCase().replace(/(?:^|\s|-)\w/g, match => match.toUpperCase());
+      }
+
+      const svg = d3.select("#constellation");
+      const width = 800;
+      const height = 600;
+      const padding = 40;
+      const yearLabel = svg
+        .append("text")
+        .attr("class", "year-label")
+        .attr("x", width - 100)
+        .attr("y", 50)
+        .text("");
+
+      function updateStats(allData, year = null, nameYearCounts = null) {
+        const stats = d3.select(".stats");
+        
+        if (year === null) {
+          // Show overall statistics
+          const totalNames = allData.length;
+          const totalPeople = d3.sum(allData, d => d.totalCount);
+          const avgNameUsage = Math.round(totalPeople / totalNames);
+          const topNames = allData.slice(0, 10);
+
+          stats.html(`
+            <h3>Overall Statistics</h3>
+            <div class="stat-row">
+              <span class="stat-label">Unique Names:</span>
+              <span class="stat-value">${totalNames.toLocaleString()}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Total Usage:</span>
+              <span class="stat-value">${totalPeople.toLocaleString()}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Average Usage:</span>
+              <span class="stat-value">${avgNameUsage.toLocaleString()}</span>
+            </div>
+            <h4>Most Popular Names</h4>
+            ${topNames.map((d, i) => `
+              <div class="stat-row">
+                <span class="stat-label">${i + 1}. ${d.name}</span>
+                <span class="stat-value">${d.totalCount.toLocaleString()}</span>
+              </div>
+            `).join('')}
+          `);
+        } else {
+          // Show year-specific statistics
+          const yearData = allData
+            .filter(d => d.years.includes(year))
+            .map(d => ({
+              name: d.name,
+              count: nameYearCounts[`${d.name}-${year}`] || 0
+            }))
+            .sort((a, b) => b.count - a.count);
+
+          const totalNames = yearData.length;
+          const totalPeople = d3.sum(yearData, d => d.count);
+          const avgNameUsage = Math.round(totalPeople / totalNames);
+          const topNames = yearData.slice(0, 10);
+
+          stats.html(`
+            <h3>${year} Statistics</h3>
+            <div class="stat-row">
+              <span class="stat-label">Unique Names:</span>
+              <span class="stat-value">${totalNames.toLocaleString()}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Total Babies:</span>
+              <span class="stat-value">${totalPeople.toLocaleString()}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Average Usage:</span>
+              <span class="stat-value">${avgNameUsage.toLocaleString()}</span>
+            </div>
+            <h4>Top Names for ${year}</h4>
+            ${topNames.map((d, i) => `
+              <div class="stat-row">
+                <span class="stat-label">${i + 1}. ${d.name}</span>
+                <span class="stat-value">${d.count.toLocaleString()}</span>
+              </div>
+            `).join('')}
+          `);
+        }
+      }
+
+      d3.csv("Popular_Baby_Names_20241011.csv").then((rawData) => {
+        // Normalize and aggregate the data
+        const nameAggregates = {};
+        const nameYearCounts = {};
+
+        rawData.forEach((d) => {
+          const normalizedName = toTitleCase(d["Child's First Name"]);
+          const year = d["Year of Birth"];
+          const count = +d.Count;
+
+          if (!nameAggregates[normalizedName]) {
+            nameAggregates[normalizedName] = {
+              totalCount: 0,
+              years: new Set(),
+              firstYear: Infinity,
+              lastYear: -Infinity
+            };
+          }
+
+          nameAggregates[normalizedName].totalCount += count;
+          nameAggregates[normalizedName].years.add(year);
+          nameAggregates[normalizedName].firstYear = Math.min(nameAggregates[normalizedName].firstYear, +year);
+          nameAggregates[normalizedName].lastYear = Math.max(nameAggregates[normalizedName].lastYear, +year);
+
+          const yearKey = `${normalizedName}-${year}`;
+          if (!nameYearCounts[yearKey]) {
+            nameYearCounts[yearKey] = 0;
+          }
+          nameYearCounts[yearKey] += count;
+        });
+
+        const data = Object.entries(nameAggregates).map(([name, stats]) => ({
+          name: name,
+          totalCount: stats.totalCount,
+          years: Array.from(stats.years),
+          firstYear: stats.firstYear,
+          lastYear: stats.lastYear
+        }));
+
+        data.sort((a, b) => b.totalCount - a.totalCount);
+
+        // Generate positions
+        data.forEach((d, i) => {
+          const position = generateStarPosition(i, data.length);
+          d.x = position.x;
+          d.y = position.y;
+        });
+
+        // Initial statistics
+        updateStats(data);
+
+        const maxCount = d3.max(data, d => d.totalCount);
+        const brightnessScale = d3
+          .scaleLog()
+          .domain([1, maxCount])
+          .range([0.2, 1]);
+
+        const years = [...new Set(rawData.map(d => d["Year of Birth"]))].sort();
+
+        // Create stars
+        svg
+          .selectAll(".star")
+          .data(data, d => d.name)
+          .join("circle")
+          .attr("class", "star")
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y)
+          .attr("r", d => 1 + Math.log10(d.totalCount) * 0.3)
+          .attr("opacity", d => brightnessScale(d.totalCount))
+          .on("mouseover", function(event, d) {
+            d3.select(this).attr("r", 6);
+            svg
+              .append("text")
+              .attr("class", "name-label")
+              .attr("x", d.x + 4)
+              .attr("y", d.y - 4)
+              .text(`${d.name} (${d.totalCount.toLocaleString()})`);
+          })
+          .on("mouseout", function(event, d) {
+            d3.select(this).attr("r", 1 + Math.log10(d.totalCount) * 0.3);
+            svg.selectAll(".name-label").remove();
+          });
+
+        // Create timeline
+        const timeline = d3.select("#timeline");
+        years.forEach(year => {
+          timeline
+            .append("span")
+            .attr("class", "year-button")
+            .text(year)
+            .on("click", function() {
+              // Remove active class from all buttons
+              timeline.selectAll(".year-button").classed("active", false);
+              // Add active class to clicked button
+              d3.select(this).classed("active", true);
+              drawTopNamesForYear(year);
+              updateStats(data, year, nameYearCounts);
+            });
+        });
+
+        function drawTopNamesForYear(year) {
+          svg.selectAll(".line").remove();
+          svg.selectAll(".name-label").remove();
+
+          const yearData = data
+            .filter(d => d.years.includes(year))
+            .sort((a, b) => {
+              const aCount = nameYearCounts[`${a.name}-${year}`] || 0;
+              const bCount = nameYearCounts[`${b.name}-${year}`] || 0;
+              return bCount - aCount;
+            })
+            .slice(0, 10);
+
+          yearLabel.text(year);
+
+          svg
+            .selectAll(".line")
+            .data(d3.pairs(yearData))
+            .join("line")
+            .attr("class", "line")
+            .attr("x1", d => d[0].x)
+            .attr("y1", d => d[0].y)
+            .attr("x2", d => d[1].x)
+            .attr("y2", d => d[1].y);
+
+          svg
+            .selectAll(".star")
+            .attr("opacity", 0.2)
+            .filter(d => yearData.includes(d))
+            .attr("opacity", 1)
+            .attr("r", 4);
+
+          svg
+            .selectAll(".name-label")
+            .data(yearData)
+            .join("text")
+            .attr("class", "name-label")
+            .attr("x", d => d.x + 4)
+            .attr("y", d => d.y - 4)
+            .text(d => `${d.name} (${nameYearCounts[`${d.name}-${year}`].toLocaleString()})`);
+        }
+
+        // [Search functionality remains the same]
+        d3.select("#nameSearch").on("input", function() {
+          const searchTerm = this.value.toLowerCase();
+          
+          svg
+            .selectAll(".star")
+            .attr("opacity", 0.2)
+            .attr("r", d => 1 + Math.log10(d.totalCount) * 0.3);
+
+          const filteredData = data.filter(d => 
+            d.name.toLowerCase().includes(searchTerm)
+          );
+
+          svg
+            .selectAll(".star")
+            .filter(d => filteredData.includes(d))
+            .attr("opacity", 1)
+            .attr("r", 4);
+
+          svg
+            .selectAll(".name-label")
+            .data(filteredData)
+            .join("text")
+            .attr("class", "name-label")
+            .attr("x", d => d.x + 4)
+            .attr("y", d => d.y - 4)
+            .text(d => `${d.name} (${d.totalCount.toLocaleString()})`);
+
+          const summary = d3.select("#summary");
+          if (filteredData.length > 0) {
+            const name = filteredData[0];
+            summary.text(
+              `"${name.name}" appears ${name.totalCount.toLocaleString()} times total, ` +
+              `first appearing in ${name.firstYear} and last in ${name.lastYear}.`
+            );
+          } else {
+            summary.text("No matching names found.");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
